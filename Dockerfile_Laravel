@@ -1,0 +1,32 @@
+FROM php:7.4-fpm-alpine
+
+RUN apk --no-cache add \
+    build-base \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libzip-dev \
+    unzip \
+    git \
+    curl
+
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl gd zip xml
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www
+
+COPY package.json yarn.lock ./
+RUN yarn install
+
+
+COPY composer.lock composer.lock
+COPY composer.json composer.json
+
+RUN composer install --no-dev --no-autoloader
+
+COPY . /var/www
+ 
+RUN composer dump-autoload --optimize
+
+EXPOSE 9000
+CMD ["php-fpm"]
