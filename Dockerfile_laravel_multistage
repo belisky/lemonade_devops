@@ -1,0 +1,33 @@
+# --- BUILD STAGE ---
+FROM php:7.4-fpm-alpine AS build
+
+RUN apk --no-cache add \
+    build-base \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libzip-dev \
+    unzip \
+    git \
+    curl
+
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl gd zip xml
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www
+
+COPY package.json yarn.lock ./
+RUN yarn install
+
+COPY . /var/www
+
+RUN composer install
+RUN php artisan optimize
+
+# --- PRODUCTION STAGE ---
+FROM nginx:stable-alpine AS production
+
+COPY --from=build /var/www/public /var/www/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
